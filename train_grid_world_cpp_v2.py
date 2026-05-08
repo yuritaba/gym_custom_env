@@ -2,14 +2,17 @@
 # python train_grid_world_cpp_v2.py <modo> [dim]
 #
 # Modos disponíveis:
-#   train        — curriculum completo do zero (stages 1 → 2 → 3 → 4 → 5 → 20x20)
+#   train        — curriculum completo do zero (stages 1 → 6)
+#   continue     — continua do melhor modelo salvo (stages 7 → 9: 10×10 + 20×20)
 #   test   [dim] — avalia modelo salvo em 100 episódios no grid DIMxDIM
 #   run    [dim] — roda um episódio com visualização
 #
 # Exemplos:
 #   python train_grid_world_cpp_v2.py train
+#   python train_grid_world_cpp_v2.py continue
 #   python train_grid_world_cpp_v2.py test 5
 #   python train_grid_world_cpp_v2.py test 10
+#   python train_grid_world_cpp_v2.py test 20
 #   python train_grid_world_cpp_v2.py run 10
 #
 
@@ -190,6 +193,63 @@ def train():
     print(f"\nTreinamento completo em {(datetime.now()-t0).total_seconds()/60:.1f} min")
     print(f"Modelo final: {prev}")
 
+# ─── Continuation: stages 7-9 (10×10 > 90% avg, 20×20 ~80%) ─────────────────
+
+def continue_training():
+    models = sorted(glob.glob("data/ppo_*.zip"))
+    if not models:
+        print("Nenhum modelo encontrado em data/. Rode primeiro: python train_grid_world_cpp_v2.py train")
+        sys.exit(1)
+
+    print("Modelos disponíveis:")
+    for i, p in enumerate(models):
+        print(f"  [{i}] {p}")
+    idx = input(f"Escolha o índice [{len(models)-1}]: ").strip()
+    prev = models[int(idx)] if idx else models[-1]
+    print(f"\nIniciando de: {prev}\n")
+
+    t0 = datetime.now()
+
+    # ── Stage 7: 10×10 intensive — quebra loops, alta entropia
+    prev = _train_stage(
+        "cpp_s7_10x10_intensive", prev,
+        [_make(5,3,200), _make(10,12,500), _make(10,12,500), _make(10,12,500)],
+        timesteps=5_000_000, lr=5e-5, ent=0.07,
+        desc="1×5x5 + 3×10x10 — foco intensivo 10×10, alta entropia",
+    )
+    print("  Avaliação stage 7:")
+    _eval(prev, 5,  3,  200, label="5×5")
+    _eval(prev, 10, 12, 500, label="10×10")
+
+    # ── Stage 8: 20×20 introduction
+    prev = _train_stage(
+        "cpp_s8_20x20_intro", prev,
+        [_make(5,3,200), _make(10,12,500), _make(20,48,2000), _make(20,48,2000)],
+        timesteps=5_000_000, lr=5e-5, ent=0.05,
+        desc="1×5x5 + 1×10x10 + 2×20x20 — introdução 20×20",
+    )
+    print("  Avaliação stage 8:")
+    _eval(prev, 5,  3,  200,  label="5×5")
+    _eval(prev, 10, 12, 500,  label="10×10")
+    _eval(prev, 20, 48, 2000, label="20×20")
+
+    # ── Stage 9: final fine-tune all sizes
+    prev = _train_stage(
+        "cpp_s9_final_large", prev,
+        [_make(5,3,200), _make(10,12,500), _make(10,12,500), _make(20,48,2000)],
+        timesteps=2_000_000, lr=1e-5, ent=0.02,
+        desc="1×5x5 + 2×10x10 + 1×20x20 — ajuste fino final",
+    )
+
+    print(f"\n{'='*60}")
+    print("  AVALIAÇÃO FINAL (100 episódios)")
+    print(f"{'='*60}")
+    _eval(prev, 5,  3,  200,  label="5×5")
+    _eval(prev, 10, 12, 500,  label="10×10")
+    _eval(prev, 20, 48, 2000, label="20×20")
+    print(f"\nContinuação completa em {(datetime.now()-t0).total_seconds()/60:.1f} min")
+    print(f"Modelo final: {prev}")
+
 # ─── Test ─────────────────────────────────────────────────────────────────────
 
 def test(dim):
@@ -278,7 +338,7 @@ def run(dim):
 # ─── Entry ────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    if len(sys.argv) < 2 or sys.argv[1] not in ("train", "test", "run"):
+    if len(sys.argv) < 2 or sys.argv[1] not in ("train", "continue", "test", "run"):
         print(__doc__)
         sys.exit(1)
 
@@ -287,6 +347,8 @@ if __name__ == "__main__":
 
     if mode == "train":
         train()
+    elif mode == "continue":
+        continue_training()
     elif mode == "test":
         test(dim)
     elif mode == "run":

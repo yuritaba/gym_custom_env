@@ -179,55 +179,59 @@ O ambiente CPP possui renderização visual com as seguintes indicações:
 
 ## CPP v2 — Representação de Estado Aprimorada e Curriculum Learning
 
-Para superar a limitação de generalização do ambiente v1, foi implementada uma versão melhorada (`grid_world_cpp_v2.py`) com as seguintes mudanças:
+O agente v1 travava quando todas as células vizinhas já haviam sido visitadas — sem memória, sem como inferir a direção certa. A versão v2 resolve isso com três mudanças no estado e curriculum learning progressivo.
 
 ### Novos componentes do estado (v2)
 
 | Feature | Shape | Descrição |
 |---------|-------|-----------|
 | `agent` | (3,) | Posição normalizada + taxa de cobertura |
-| `local_map` | (7, 7) | Janela do mapa parcial acumulado (0=desconhecido, 1=livre, 2=obstáculo, 3=visitado) |
+| `local_map` | (7, 7) | Mapa parcial acumulado centrado no agente (memória de exploração) |
 | `frontier` | (4,) | Direção para a célula livre mais próxima e para a célula desconhecida mais próxima |
 
-O `local_map` tem **tamanho fixo (7×7) independente do grid**, permitindo transfer learning direto entre tamanhos.
+O `local_map` tem **tamanho fixo (7×7)** independente do grid, permitindo transfer learning direto entre tamanhos.
 
-### Resultados (100 episódios por configuração)
+### Resultados Finais (100 episódios)
 
-![Full Coverage Rate — 5×5](plots/full_coverage_5x5.png)
+![Resultados finais — todos os grids](plots/final_results_all_grids.png)
 
-| Modelo | 5×5 Full% | 5×5 Avg% | 10×10 Full% | 10×10 Avg% |
-|--------|-----------|----------|-------------|------------|
-| Baseline v1 | 78% | 95.0% | 65% | 82.0% |
-| **S6 final (v2)** | **93%** | **99.36%** | — | — |
-| S2 mixed (v2) | 85% | 98.55% | **47%** | **84.76%** |
+| Grid | Full Cov% | Avg Cov% | Mediana |
+|------|-----------|----------|---------|
+| 5×5 | **90%** | **98.95%** | 100% |
+| 10×10 | **50%** | **93.85%** ✓ | 99.4% |
+| 20×20 | 0% | 61.08% | 66.9% |
 
-![Progressão por Stage](plots/curriculum_progression.png)
+Relatório completo com análise, storytelling e discussão: **[REPORT.md](REPORT.md)**
 
-Relatório completo com análise, plots e discussão: **[REPORT.md](REPORT.md)**
+### Curriculum Learning (9 stages)
 
-### Curriculum Learning (6 stages)
-
-| Stage | Grid(s) | Timesteps |
-|-------|---------|-----------|
-| S1 | 4×5×5 | 1.5M |
-| S2 | 2×5×5 + 2×10×10 | 3M |
-| S3 | 1×5×5 + 3×10×10 | 4M |
-| S4 | 2×5×5 + 2×10×10 | 2M |
-| S5 | 1×5×5 + 1×10×10 + 2×20×20 | 5M |
-| S6 | 1×5×5 + 2×10×10 + 1×20×20 | 2M |
+| Stage | Grid(s) | Timesteps | Objetivo |
+|-------|---------|-----------|---------|
+| S1 | 4×5×5 | 1.5M | Aprender CPP básico |
+| S2 | 2×5×5 + 2×10×10 | 3M | Introduzir 10×10 |
+| S3 | 1×5×5 + 3×10×10 | 4M | Alta entropia, quebra loops 5×5 |
+| S4 | 2×5×5 + 2×10×10 | 2M | Consolidação |
+| S5–S6 | 5×5 + 10×10 + 20×20 | 7M | Introdução 20×20, fine-tune |
+| S7 | 1×5×5 + 3×10×10 | 5M | Alta entropia, melhora 10×10 |
+| S8–S9 | 5×5 + 10×10 + 20×20 | 7M | 20×20 robusto, ajuste final |
 
 ### Como executar (v2)
 
-**Treinar curriculum completo:**
+**Treinar curriculum completo (S1→S6):**
 ```bash
 python train_grid_world_cpp_v2.py train
 ```
 
+**Continuar treinamento (S7→S9, melhora 10×10 e 20×20):**
+```bash
+python train_grid_world_cpp_v2.py continue
+```
+
 **Testar modelo treinado:**
 ```bash
-python train_grid_world_cpp_v2.py test 5    # avalia no grid 5×5
-python train_grid_world_cpp_v2.py test 10   # avalia no grid 10×10
-python train_grid_world_cpp_v2.py test 20   # avalia no grid 20×20
+python train_grid_world_cpp_v2.py test 5
+python train_grid_world_cpp_v2.py test 10
+python train_grid_world_cpp_v2.py test 20
 ```
 
 **Visualizar um episódio:**

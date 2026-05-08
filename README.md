@@ -175,3 +175,63 @@ O ambiente CPP possui renderização visual com as seguintes indicações:
 - **Branco**: células livres ainda não visitadas
 - **Texto no topo**: cobertura atual e número de passos
 
+---
+
+## CPP v2 — Representação de Estado Aprimorada e Curriculum Learning
+
+Para superar a limitação de generalização do ambiente v1, foi implementada uma versão melhorada (`grid_world_cpp_v2.py`) com as seguintes mudanças:
+
+### Novos componentes do estado (v2)
+
+| Feature | Shape | Descrição |
+|---------|-------|-----------|
+| `agent` | (3,) | Posição normalizada + taxa de cobertura |
+| `local_map` | (7, 7) | Janela do mapa parcial acumulado (0=desconhecido, 1=livre, 2=obstáculo, 3=visitado) |
+| `frontier` | (4,) | Direção para a célula livre mais próxima e para a célula desconhecida mais próxima |
+
+O `local_map` tem **tamanho fixo (7×7) independente do grid**, permitindo transfer learning direto entre tamanhos.
+
+### Resultados (100 episódios por configuração)
+
+![Full Coverage Rate — 5×5](plots/full_coverage_5x5.png)
+
+| Modelo | 5×5 Full% | 5×5 Avg% | 10×10 Full% | 10×10 Avg% |
+|--------|-----------|----------|-------------|------------|
+| Baseline v1 | 78% | 95.0% | 65% | 82.0% |
+| **S6 final (v2)** | **93%** | **99.36%** | — | — |
+| S2 mixed (v2) | 85% | 98.55% | **47%** | **84.76%** |
+
+![Progressão por Stage](plots/curriculum_progression.png)
+
+Relatório completo com análise, plots e discussão: **[REPORT.md](REPORT.md)**
+
+### Curriculum Learning (6 stages)
+
+| Stage | Grid(s) | Timesteps |
+|-------|---------|-----------|
+| S1 | 4×5×5 | 1.5M |
+| S2 | 2×5×5 + 2×10×10 | 3M |
+| S3 | 1×5×5 + 3×10×10 | 4M |
+| S4 | 2×5×5 + 2×10×10 | 2M |
+| S5 | 1×5×5 + 1×10×10 + 2×20×20 | 5M |
+| S6 | 1×5×5 + 2×10×10 + 1×20×20 | 2M |
+
+### Como executar (v2)
+
+**Treinar curriculum completo:**
+```bash
+python train_grid_world_cpp_v2.py train
+```
+
+**Testar modelo treinado:**
+```bash
+python train_grid_world_cpp_v2.py test 5    # avalia no grid 5×5
+python train_grid_world_cpp_v2.py test 10   # avalia no grid 10×10
+python train_grid_world_cpp_v2.py test 20   # avalia no grid 20×20
+```
+
+**Visualizar um episódio:**
+```bash
+python train_grid_world_cpp_v2.py run 5
+python train_grid_world_cpp_v2.py run 10
+```

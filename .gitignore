@@ -1,5 +1,29 @@
-venv
-__pycache__
-log
-data
+# Virtual environments
+venv/
+venv_test/
+env/
 
+# Training artifacts (modelos e logs são regeneráveis)
+data/
+log/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Temp
+*.log
+*.tmp
+nohup.out

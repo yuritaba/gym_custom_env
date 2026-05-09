@@ -191,6 +191,14 @@ O agente v1 travava quando todas as células vizinhas já haviam sido visitadas 
 
 O `local_map` tem **tamanho fixo (7×7)** independente do grid, permitindo transfer learning direto entre tamanhos.
 
+### Agente em ação
+
+| 5×5 | 10×10 | 20×20 |
+|:-:|:-:|:-:|
+| ![5×5](plots/agent_5x5_ep1.gif) | ![10×10](plots/agent_10x10_ep1.gif) | ![20×20](plots/agent_20x20_ep1.gif) |
+
+Mais episódios (3 por grid) em [REPORT.md](REPORT.md).
+
 ### Resultados Finais (100 episódios)
 
 ![Resultados finais — todos os grids](plots/final_results_all_grids.png)

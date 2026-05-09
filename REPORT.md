@@ -147,6 +147,30 @@ Três stages adicionais partindo do modelo S6:
 
 ![Resultados finais — todos os grids](plots/final_results_all_grids.png)
 
+### Agente em ação (3 episódios por grid)
+
+**Grid 5×5** — todos com cobertura completa em ~22 passos:
+
+| Ep 1 (23 passos) | Ep 2 (21 passos) | Ep 3 (23 passos) |
+|:-:|:-:|:-:|
+| ![5×5 ep1](plots/agent_5x5_ep1.gif) | ![5×5 ep2](plots/agent_5x5_ep2.gif) | ![5×5 ep3](plots/agent_5x5_ep3.gif) |
+
+**Grid 10×10** — cobertura completa em ~100 passos:
+
+| Ep 1 (98 passos) | Ep 2 (110 passos) | Ep 3 (109 passos) |
+|:-:|:-:|:-:|
+| ![10×10 ep1](plots/agent_10x10_ep1.gif) | ![10×10 ep2](plots/agent_10x10_ep2.gif) | ![10×10 ep3](plots/agent_10x10_ep3.gif) |
+
+**Grid 20×20** — cobertura parcial dentro do limite de 2000 passos (frames subsampleados):
+
+| Ep 1 (98.9%) | Ep 2 (97.7%) | Ep 3 (94.6%) |
+|:-:|:-:|:-:|
+| ![20×20 ep1](plots/agent_20x20_ep1.gif) | ![20×20 ep2](plots/agent_20x20_ep2.gif) | ![20×20 ep3](plots/agent_20x20_ep3.gif) |
+
+> **Observação:** nos GIFs de 20×20 o agente cobre rapidamente a maior parte do grid, mas perto do fim começa a oscilar entre duas células sem fechar os últimos 1-3% restantes. Isso é esperado dada a arquitetura: o `frontier vector` aponta para a célula livre mais próxima por distância de Manhattan, mas o MLP não planeja a rota até lá quando ela exige contornar obstáculos fora da janela 7×7. O agente alterna entre direções de frontier que parecem promissoras localmente mas não levam a progresso real — é o sintoma clássico do gargalo arquitetural mencionado na seção 6.2 (necessidade de CNN ou memória recorrente para planejamento de longo alcance).
+
+
+
 | Grid | Full Cov% | Avg Cov% | Mediana | Steps médios |
 |------|-----------|----------|---------|-------------|
 | 5×5  | **90%** | **98.95%** | 100% | 42 |

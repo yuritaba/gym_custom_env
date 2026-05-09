@@ -288,11 +288,11 @@ class GridWorldCPPEnvV2(gym.Env):
                            (self._agent_location + 0.5) * pix, pix / 3)
 
         if pygame.font.get_init() or (pygame.init() and pygame.font.get_init()):
-            font = pygame.font.SysFont(None, 24)
+            font = pygame.font.SysFont(None, 28, bold=True)
             text = font.render(
                 f"Coverage: {self.coverage_ratio:.1%} | Steps: {self.count_steps}",
-                True, (0, 0, 0))
-            canvas.blit(text, (5, 5))
+                True, (220, 50, 50))
+            canvas.blit(text, (8, 8))
 
         for x in range(self.size + 1):
             pygame.draw.line(canvas, 0, (0, pix * x), (self.window_size, pix * x), width=3)

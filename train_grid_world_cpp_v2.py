@@ -21,6 +21,7 @@ import sys
 import glob
 import gymnasium as gym
 import numpy as np
+from collections import deque
 from datetime import datetime
 
 os.makedirs("data", exist_ok=True)
@@ -57,19 +58,66 @@ def _make_vec(env_fns):
 def _print_action(a):
     return {0:"right", 1:"up", 2:"left", 3:"down"}.get(a, "?")
 
+# ─── Anti-loop predictor (opção 1+2: stochastic + loop break) ────────────────
+
+_ACTION_DIRS = {0: (1, 0), 1: (0, -1), 2: (-1, 0), 3: (0, 1)}
+_LOOP_WINDOW = 8
+
+
+class AntiLoopPredictor:
+    """
+    Wrapper de inferência que combina:
+    1. Sampling estocástico (deterministic=False) — quebra empates entre frontiers
+    2. Detector de loop de 2 células — força ação não-back quando preso
+
+    Mantém histórico das últimas N posições. Se em N passos o agente visitou
+    apenas <= 2 células únicas, considera-se em loop e amostra uma ação que
+    NÃO retorne à posição imediatamente anterior.
+    """
+    def __init__(self, model, deterministic=False, window=_LOOP_WINDOW):
+        self.model = model
+        self.deterministic = deterministic
+        self.window = window
+        self.history = deque(maxlen=window)
+        self.rng = np.random.default_rng()
+        self.loop_breaks = 0
+
+    def reset(self):
+        self.history.clear()
+        self.loop_breaks = 0
+
+    def predict(self, obs, agent_pos):
+        pos = (int(agent_pos[0]), int(agent_pos[1]))
+        self.history.append(pos)
+
+        stuck = (len(self.history) >= self.window
+                 and len(set(self.history)) <= 2)
+
+        if stuck and len(self.history) >= 2:
+            prev = self.history[-2]
+            valid = [a for a, (dx, dy) in _ACTION_DIRS.items()
+                     if (pos[0] + dx, pos[1] + dy) != prev]
+            self.loop_breaks += 1
+            return int(self.rng.choice(valid))
+
+        action, _ = self.model.predict(obs, deterministic=self.deterministic)
+        return int(action)
+
 def _eval(model_path, dim, obs, max_steps, n=100, label=""):
     env = gym.make("gymnasium_env/GridWorldCPPV2-v0",
                    size=dim, obs_quantity=obs,
                    max_steps=max_steps, render_mode="rgb_array")
     m = PPO.load(model_path, device="cpu")
+    predictor = AntiLoopPredictor(m, deterministic=False)
     full, covs, steps = 0, [], []
     for _ in range(n):
         o, info = env.reset()
+        predictor.reset()
         done = trunc = False
         st = 0
         while not done and not trunc:
-            a, _ = m.predict(o, deterministic=True)
-            o, r, done, trunc, info = env.step(int(a))
+            a = predictor.predict(o, env.unwrapped._agent_location)
+            o, r, done, trunc, info = env.step(a)
             st += 1
         covs.append(info["coverage"])
         steps.append(st)
@@ -272,29 +320,35 @@ def test(dim):
     env   = gym.make("gymnasium_env/GridWorldCPPV2-v0",
                      size=dim, obs_quantity=obs_q,
                      max_steps=max_steps, render_mode="rgb_array")
+    predictor = AntiLoopPredictor(model, deterministic=False)
 
-    full, covs, steps_list = 0, [], []
+    full, covs, steps_list, breaks_list = 0, [], [], []
     for ep in range(100):
         obs, info = env.reset()
+        predictor.reset()
         done = trunc = False
         steps = 0
         while not done and not trunc:
-            action, _ = model.predict(obs, deterministic=True)
-            obs, r, done, trunc, info = env.step(int(action))
+            action = predictor.predict(obs, env.unwrapped._agent_location)
+            obs, r, done, trunc, info = env.step(action)
             steps += 1
         covs.append(info["coverage"])
         steps_list.append(steps)
+        breaks_list.append(predictor.loop_breaks)
         if done and not trunc:
             full += 1
-            print(f"  Ep {ep+1:3d}: COBERTURA COMPLETA em {steps} passos")
+            print(f"  Ep {ep+1:3d}: COBERTURA COMPLETA em {steps} passos "
+                  f"(loop-breaks={predictor.loop_breaks})")
         else:
-            print(f"  Ep {ep+1:3d}: cobertura {info['coverage']:.1%} em {steps} passos")
+            print(f"  Ep {ep+1:3d}: cobertura {info['coverage']:.1%} em {steps} passos "
+                  f"(loop-breaks={predictor.loop_breaks})")
 
     print(f"\n{'─'*50}")
     print(f"  Full Coverage Rate : {full}/100  ({full}%)")
     print(f"  Coverage Média     : {np.mean(covs)*100:.2f}%")
     print(f"  Coverage Mediana   : {np.median(covs)*100:.2f}%")
     print(f"  Steps Médios       : {np.mean(steps_list):.1f}")
+    print(f"  Loop-breaks/ep     : {np.mean(breaks_list):.1f}")
     print(f"{'─'*50}")
 
 # ─── Run ──────────────────────────────────────────────────────────────────────
@@ -319,20 +373,23 @@ def run(dim):
     env   = gym.make("gymnasium_env/GridWorldCPPV2-v0",
                      size=dim, obs_quantity=obs_q,
                      max_steps=max_steps, render_mode="human")
+    predictor = AntiLoopPredictor(model, deterministic=False)
 
     obs, info = env.reset()
+    predictor.reset()
     done = trunc = False
     steps = 0
     total_r = 0.0
     while not done and not trunc:
-        action, _ = model.predict(obs, deterministic=True)
-        obs, r, done, trunc, info = env.step(int(action))
+        action = predictor.predict(obs, env.unwrapped._agent_location)
+        obs, r, done, trunc, info = env.step(action)
         total_r += r
         steps += 1
-        print(f"  Step {steps:4d} | {_print_action(int(action)):5s} | "
+        print(f"  Step {steps:4d} | {_print_action(action):5s} | "
               f"cov={info['coverage']:.1%} | r={r:+.2f}")
 
-    print(f"\nFim | cov={info['coverage']:.1%} | steps={steps} | reward={total_r:.2f}")
+    print(f"\nFim | cov={info['coverage']:.1%} | steps={steps} | reward={total_r:.2f} "
+          f"| loop-breaks={predictor.loop_breaks}")
     env.close()
 
 # ─── Entry ────────────────────────────────────────────────────────────────────

@@ -199,17 +199,17 @@ O `local_map` tem **tamanho fixo (7×7)** independente do grid, permitindo trans
 
 Mais episódios (3 por grid) em [REPORT.md](REPORT.md).
 
-### Resultados Finais (100 episódios)
+### Resultados (100 episódios)
 
-![Resultados finais — todos os grids](plots/final_results_all_grids.png)
+| Grid | S9 det. (Full / Avg) | **+ AntiLoopPredictor** |
+|------|---------------------|-------------------------|
+| 5×5  | 90% / 98.95% | **94% / 99.68%** |
+| 10×10 | 50% / 93.85% | **93% / 99.80%** |
+| 20×20 | 0% / 61.08%  | **76% / 98.58%** |
 
-| Grid | Full Cov% | Avg Cov% | Mediana |
-|------|-----------|----------|---------|
-| 5×5 | **90%** | **98.95%** | 100% |
-| 10×10 | **50%** | **93.85%** ✓ | 99.4% |
-| 20×20 | 0% | 61.08% | 66.9% |
+![Antes vs depois do AntiLoopPredictor](plots/loop_fix_comparison.png)
 
-Relatório completo com análise, storytelling e discussão: **[REPORT.md](REPORT.md)**
+Após observar nos GIFs do 20×20 que o agente entrava em loop de 2 células no fim do episódio, foi adicionado um wrapper de inferência (`AntiLoopPredictor`: amostragem estocástica + detector de loop) que destravou o 20×20 sem re-treino. Storytelling completo em [REPORT.md](REPORT.md) seção 6.
 
 ### Curriculum Learning (9 stages)
 

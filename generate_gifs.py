@@ -13,6 +13,7 @@ os.makedirs("plots", exist_ok=True)
 
 from gymnasium_env.grid_world_cpp_v2 import GridWorldCPPEnvV2
 from stable_baselines3 import PPO
+from train_grid_world_cpp_v2 import AntiLoopPredictor
 
 try:
     gym.register(id="gymnasium_env/GridWorldCPPV2-v0", entry_point=GridWorldCPPEnvV2)
@@ -30,12 +31,15 @@ def record_episode(model, dim, obs_q, max_steps, max_frames=200, seed=None):
     else:
         obs, info = env.reset()
 
+    predictor = AntiLoopPredictor(model, deterministic=False)
+    predictor.reset()
+
     frames = [env.unwrapped._render_frame()]
     done = trunc = False
     steps = 0
     while not done and not trunc:
-        action, _ = model.predict(obs, deterministic=True)
-        obs, r, done, trunc, info = env.step(int(action))
+        action = predictor.predict(obs, env.unwrapped._agent_location)
+        obs, r, done, trunc, info = env.step(action)
         frames.append(env.unwrapped._render_frame())
         steps += 1
 

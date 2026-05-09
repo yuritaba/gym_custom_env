@@ -193,23 +193,55 @@ plt.savefig("plots/s6_steps_distribution.png", dpi=150, bbox_inches="tight")
 plt.close()
 print("Salvo: plots/s6_steps_distribution.png")
 
-# ── Fig 5: Resumo final — todos os grids ─────────────────────────────────────
+# ── Fig 5: Resumo S9 determinístico — usado na seção 5 ───────────────────────
 fig, ax = plt.subplots(figsize=(9, 5))
 
-grids   = ["5×5", "10×10", "20×20"]
-full_s6 = [93, None, None]
-full_s9 = [90, 50, 0]
-avg_s6  = [99.36, None, None]
-avg_s9  = [98.95, 93.85, 61.08]
+grids = ["5×5", "10×10", "20×20"]
+full_det = [90,    50,    0]
+avg_det  = [98.95, 93.85, 61.08]
+
+x = np.arange(len(grids))
+w = 0.35
+
+b1 = ax.bar(x - w/2, full_det, w, color=BLUE,  alpha=0.9, label="Full Cov %")
+b2 = ax.bar(x + w/2, avg_det,  w, color=GREEN, alpha=0.9, label="Avg Cov %")
+ax.axhline(90, color=RED, linestyle="--", linewidth=1.2, alpha=0.8, label="Meta 90%")
+
+for bars in [b1, b2]:
+    for bar in bars:
+        h = bar.get_height()
+        if h > 0:
+            ax.text(bar.get_x() + bar.get_width()/2, h + 0.5,
+                    f"{h:.1f}".rstrip('0').rstrip('.'), ha="center", va="bottom", fontsize=10)
+        else:
+            ax.text(bar.get_x() + bar.get_width()/2, 1, "0",
+                    ha="center", va="bottom", fontsize=10, color=GRAY)
+
+ax.set_xticks(x); ax.set_xticklabels(grids, fontsize=12)
+ax.set_ylim(0, 112)
+ax.set_ylabel("Cobertura (%)")
+ax.set_title("S9 (inferência determinística) — todos os grids")
+ax.legend(frameon=False, fontsize=10)
+plt.tight_layout()
+plt.savefig("plots/final_results_all_grids.png", dpi=150, bbox_inches="tight")
+plt.close()
+print("Salvo: plots/final_results_all_grids.png")
+
+# ── Fig 6: Comparação det vs anti-loop — seção 6 ─────────────────────────────
+fig, ax = plt.subplots(figsize=(10, 5))
+
+full_det  = [90,    50,    0]
+full_loop = [94,    93,    76]
+avg_det   = [98.95, 93.85, 61.08]
+avg_loop  = [99.68, 99.80, 98.58]
 
 x = np.arange(len(grids))
 w = 0.2
 
-# S6 full, S9 full, S6 avg, S9 avg
-b1 = ax.bar(x - 1.5*w, [v or 0 for v in full_s6], w, color=BLUE,   alpha=0.6, label="S6 Full Cov %")
-b2 = ax.bar(x - 0.5*w, full_s9,                    w, color=BLUE,   alpha=1.0, label="S9 Full Cov %")
-b3 = ax.bar(x + 0.5*w, [v or 0 for v in avg_s6],  w, color=GREEN,  alpha=0.6, label="S6 Avg Cov %")
-b4 = ax.bar(x + 1.5*w, avg_s9,                     w, color=GREEN,  alpha=1.0, label="S9 Avg Cov %")
+b1 = ax.bar(x - 1.5*w, full_det,  w, color=BLUE,   alpha=0.55, label="S9 det. — Full Cov %")
+b2 = ax.bar(x - 0.5*w, full_loop, w, color=BLUE,   alpha=1.0,  label="S9 + anti-loop — Full Cov %")
+b3 = ax.bar(x + 0.5*w, avg_det,   w, color=GREEN,  alpha=0.55, label="S9 det. — Avg Cov %")
+b4 = ax.bar(x + 1.5*w, avg_loop,  w, color=GREEN,  alpha=1.0,  label="S9 + anti-loop — Avg Cov %")
 
 ax.axhline(90, color=RED, linestyle="--", linewidth=1.2, alpha=0.8, label="Meta 90%")
 
@@ -219,21 +251,18 @@ for bars in [b1, b2, b3, b4]:
         if h > 0:
             ax.text(bar.get_x() + bar.get_width()/2, h + 0.5,
                     f"{h:.0f}", ha="center", va="bottom", fontsize=8)
-
-# Mark S6 10×10 and 20×20 as N/A
-ax.text(x[1] - 1.5*w + w/2, 2, "N/A", ha="center", va="bottom", fontsize=7, color=GRAY)
-ax.text(x[2] - 1.5*w + w/2, 2, "N/A", ha="center", va="bottom", fontsize=7, color=GRAY)
-ax.text(x[1] + 0.5*w + w/2, 2, "N/A", ha="center", va="bottom", fontsize=7, color=GRAY)
-ax.text(x[2] + 0.5*w + w/2, 2, "N/A", ha="center", va="bottom", fontsize=7, color=GRAY)
+        else:
+            ax.text(bar.get_x() + bar.get_width()/2, 1, "0",
+                    ha="center", va="bottom", fontsize=8, color=GRAY)
 
 ax.set_xticks(x); ax.set_xticklabels(grids, fontsize=12)
 ax.set_ylim(0, 112)
 ax.set_ylabel("Cobertura (%)")
-ax.set_title("Resultados Finais — S6 vs S9 por tamanho de grid")
-ax.legend(frameon=False, fontsize=9, ncol=2)
+ax.set_title("Antes vs depois do AntiLoopPredictor (modelo S9 inalterado)")
+ax.legend(frameon=False, fontsize=9, ncol=2, loc="lower right")
 plt.tight_layout()
-plt.savefig("plots/final_results_all_grids.png", dpi=150, bbox_inches="tight")
+plt.savefig("plots/loop_fix_comparison.png", dpi=150, bbox_inches="tight")
 plt.close()
-print("Salvo: plots/final_results_all_grids.png")
+print("Salvo: plots/loop_fix_comparison.png")
 
 print("\nTodos os plots gerados em plots/")
